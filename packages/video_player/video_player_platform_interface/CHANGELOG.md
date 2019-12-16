@@ -1,3 +1,7 @@
+## 2.0.2
+
+* Add `muted` attribute
+
 ## 2.0.1
 
 * Add caching functionality to videos from network sources.

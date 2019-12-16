@@ -1,3 +1,7 @@
+## 0.2.1
+
+* Add `muted` attribute
+
 ## 0.2.0
 
 * **Breaking change**. VideoPlayerController instance now can be reused for different data sources. 
