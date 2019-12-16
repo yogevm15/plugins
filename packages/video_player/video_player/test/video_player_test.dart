@@ -122,7 +122,8 @@ void main() {
             useCache: true,
           );
 
-          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+          expect(
+              fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
             'key': 'https://127.0.0.1',
             'uri': 'https://127.0.0.1',
             'formatHint': null,
@@ -137,7 +138,8 @@ void main() {
             useCache: false,
           );
 
-          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+          expect(
+              fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
             'key': 'https://127.0.0.1',
             'uri': 'https://127.0.0.1',
             'formatHint': null,
@@ -151,7 +153,8 @@ void main() {
             'https://127.0.0.1',
           );
 
-          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+          expect(
+              fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
             'key': 'https://127.0.0.1',
             'uri': 'https://127.0.0.1',
             'formatHint': null,
@@ -166,7 +169,8 @@ void main() {
             formatHint: VideoFormat.dash,
           );
 
-          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+          expect(
+              fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
             'key': 'https://127.0.0.1:dash',
             'uri': 'https://127.0.0.1',
             'formatHint': 'dash',

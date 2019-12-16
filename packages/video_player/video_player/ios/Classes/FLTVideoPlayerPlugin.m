@@ -5,6 +5,7 @@
 #import "FLTVideoPlayerPlugin.h"
 #import <AVFoundation/AVFoundation.h>
 #import <GLKit/GLKit.h>
+#import "VIMediaCache.h"
 
 int64_t FLTCMTimeToMillis(CMTime time) {
   if (time.timescale == 0) return 0;
@@ -246,6 +247,13 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 
 - (void)setDataSourceURL:(NSURL*)url withKey:(NSString*)key {
   AVPlayerItem* item = [AVPlayerItem playerItemWithURL:url];
+  return [self setDataSourcePlayerItem:item withKey:key];
+}
+
+- (void)setDataSourceURL:(NSURL*)url
+                      withKey:(NSString*)key
+    withResourceLoaderManager:(VIResourceLoaderManager*)resourceLoaderManager {
+  AVPlayerItem* item = [resourceLoaderManager playerItemWithURL:url];
   return [self setDataSourcePlayerItem:item withKey:key];
 }
 
@@ -501,6 +509,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 @property(readonly, nonatomic) NSObject<FlutterBinaryMessenger>* messenger;
 @property(readonly, nonatomic) NSMutableDictionary* players;
 @property(readonly, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;
+@property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
+@property(nonatomic, readonly) bool enableCache;
 
 @end
 
@@ -542,12 +552,18 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   if ([@"init" isEqualToString:call.method]) {
     // Allow audio playback when the Ring/Silent switch is set to silent
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
-
+    _resourceLoaderManager = [VIResourceLoaderManager new];
+    [_resourceLoaderManager cancelLoaders];
     for (NSNumber* textureId in _players) {
       [_registry unregisterTexture:[textureId unsignedIntegerValue]];
       [_players[textureId] dispose];
     }
     [_players removeAllObjects];
+
+    NSDictionary* argsMap = call.arguments;
+    long _maxCacheSize = ((NSNumber*)argsMap[@"maxCacheSize"]).longValue;
+    long _maxCacheFileSize = ((NSNumber*)argsMap[@"maxCacheFileSize"]).longValue;
+    _enableCache = _maxCacheSize > 0 && _maxCacheFileSize > 0;
     result(nil);
   } else if ([@"create" isEqualToString:call.method]) {
     FLTFrameUpdater* frameUpdater = [[FLTFrameUpdater alloc] initWithRegistry:_registry];
@@ -573,12 +589,21 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
         }
         [player setDataSourceAsset:assetPath withKey:key];
       } else if (uriArg) {
-        [player setDataSourceURL:[NSURL URLWithString:uriArg] withKey:key];
+        if (_enableCache) {
+          [player setDataSourceURL:[NSURL URLWithString:uriArg]
+                                withKey:key
+              withResourceLoaderManager:_resourceLoaderManager];
+        } else {
+          [player setDataSourceURL:[NSURL URLWithString:uriArg] withKey:key];
+        }
       } else {
         result(FlutterMethodNotImplemented);
       }
       result(nil);
     } else if ([@"dispose" isEqualToString:call.method]) {
+      if (_resourceLoaderManager) {
+        [_resourceLoaderManager cancelLoaders];
+      }
       [_registry unregisterTexture:textureId];
       [_players removeObjectForKey:@(textureId)];
       // If the Flutter contains https://github.com/flutter/engine/pull/12695,

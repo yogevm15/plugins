@@ -108,7 +108,7 @@ void main() {
       expect(textureId, 3);
     });
 
-    group('create controller and set network data source', (){
+    group('create controller and set network data source', () {
       test('with cache', () async {
         channel.setMockMethodCallHandler((MethodCall methodCall) async {
           log.add(methodCall);
@@ -121,8 +121,7 @@ void main() {
               sourceType: DataSourceType.network,
               uri: 'someUri',
               formatHint: VideoFormat.dash,
-              useCache: true
-          ),
+              useCache: true),
         );
         expect(
           log,
@@ -154,8 +153,7 @@ void main() {
               sourceType: DataSourceType.network,
               uri: 'someUri',
               formatHint: VideoFormat.dash,
-              useCache: false
-          ),
+              useCache: false),
         );
         expect(
           log,
@@ -184,9 +182,9 @@ void main() {
         await player.setDataSource(
           textureId,
           DataSource(
-              sourceType: DataSourceType.network,
-              uri: 'someUri',
-              formatHint: VideoFormat.dash,
+            sourceType: DataSourceType.network,
+            uri: 'someUri',
+            formatHint: VideoFormat.dash,
           ),
         );
         expect(
