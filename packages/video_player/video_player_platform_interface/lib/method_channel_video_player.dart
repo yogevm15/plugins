@@ -15,8 +15,11 @@ const MethodChannel _channel = MethodChannel('flutter.io/videoPlayer');
 /// An implementation of [VideoPlayerPlatform] that uses method channels.
 class MethodChannelVideoPlayer extends VideoPlayerPlatform {
   @override
-  Future<void> init() {
-    return _channel.invokeMethod<void>('init');
+  Future<void> init(int maxCacheSize, int maxCacheFileSize) {
+    return _channel.invokeMethod<void>('init', <String, dynamic>{
+      'maxCacheSize': maxCacheSize,
+      'maxCacheFileSize': maxCacheFileSize,
+    });
   }
 
   @override
@@ -51,6 +54,7 @@ class MethodChannelVideoPlayer extends VideoPlayerPlatform {
           'key': dataSource.key,
           'uri': dataSource.uri,
           'formatHint': dataSource.rawFormalHint,
+          'useCache': dataSource.useCache,
         };
         break;
       case DataSourceType.file:

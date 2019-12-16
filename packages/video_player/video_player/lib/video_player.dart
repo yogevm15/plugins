@@ -15,11 +15,6 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 export 'package:video_player_platform_interface/video_player_platform_interface.dart'
     show DurationRange, DataSourceType, VideoFormat;
 
-// This will clear all open videos on the platform when a full restart is
-// performed.
-// ignore: unused_element
-final VideoPlayerPlatform _ = VideoPlayerPlatform.instance..init();
-
 /// The duration, current position, buffering state, error state and settings
 /// of a [VideoPlayerController].
 class VideoPlayerValue {
@@ -152,6 +147,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
 
   Timer _timer;
   bool _isDisposed = false;
+  static Completer<void> _pluginInitializingCompleter;
   final Completer<void> _creatingCompleter = Completer<void>();
   Completer<void> _initializingCompleter;
   StreamSubscription<dynamic> _eventSubscription;
@@ -164,8 +160,35 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   @visibleForTesting
   int get textureId => _textureId;
 
+  /// The maximum cache size to keep on disk in bytes.
+  static int _maxCacheSize = 100 * 1024 * 1024;
+
+  /// The maximum size of each individual file in bytes.
+  static int _maxCacheFileSize = 10 * 1024 * 1024;
+
+  /// Set the cache size in bytes. Default is maxSize of `100 * 1024 * 1024`
+  /// and maxFileSize of `10 * 1024 * 1024`.
+  ///
+  /// Cache used only for network data source.
+  ///
+  /// Throws StateError if you try to set the cache size twice. You can only set it once.
+  static void setCacheSize(int maxSize, int maxFileSize) {
+    assert(maxSize != null && maxSize > 0);
+    assert(maxFileSize != null && maxFileSize > 0);
+
+    if (_pluginInitializingCompleter != null) {
+      throw StateError(
+        "You can only set the VideoPlayerController cache size once.",
+      );
+    }
+
+    VideoPlayerController._maxCacheSize = maxSize;
+    VideoPlayerController._maxCacheFileSize = maxFileSize;
+  }
+
   /// Attempts to open the given [dataSource] and load metadata about the video.
   Future<void> _create() async {
+    await _ensureVideoPluginInitialized();
     _textureId = await VideoPlayerPlatform.instance.create();
     _creatingCompleter.complete(null);
 
@@ -215,6 +238,19 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
         .listen(eventListener, onError: errorListener);
   }
 
+  Future<void> _ensureVideoPluginInitialized() async {
+    if (_pluginInitializingCompleter != null) {
+      return _pluginInitializingCompleter.future;
+    }
+
+    _pluginInitializingCompleter = Completer();
+
+    await VideoPlayerPlatform.instance.init(_maxCacheSize, _maxCacheFileSize);
+    _pluginInitializingCompleter.complete(null);
+
+    return _pluginInitializingCompleter.future;
+  }
+
   /// Set data source for playing a video from an asset.
   ///
   /// The name of the asset is given by the [dataSource] argument and must not be
@@ -236,14 +272,20 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// The URI for the video is given by the [dataSource] argument and must not be
   /// null.
   /// **Android only**: The [formatHint] option allows the caller to override
-  /// the video format detection code.
-  Future<void> setNetworkDataSource(String dataSource,
-      {VideoFormat formatHint}) {
+  /// the video format detection code. The [useCache] argument must be non-null,
+  /// default is false.
+  Future<void> setNetworkDataSource(
+    String dataSource, {
+    VideoFormat formatHint,
+    bool useCache = false,
+  }) {
+    assert(useCache != null);
     return _setDataSource(
       DataSource(
         sourceType: DataSourceType.network,
         uri: dataSource,
         formatHint: formatHint,
+        useCache: useCache,
       ),
     );
   }

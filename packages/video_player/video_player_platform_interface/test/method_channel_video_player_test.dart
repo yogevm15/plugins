@@ -53,10 +53,15 @@ void main() {
     });
 
     test('init', () async {
-      await player.init();
+      await player.init(100, 10);
       expect(
         log,
-        <Matcher>[isMethodCall('init', arguments: null)],
+        <Matcher>[
+          isMethodCall('init', arguments: <String, Object>{
+            'maxCacheSize': 100,
+            'maxCacheFileSize': 10,
+          }),
+        ],
       );
     });
 
@@ -103,35 +108,104 @@ void main() {
       expect(textureId, 3);
     });
 
-    test('create controller and set network data source', () async {
-      channel.setMockMethodCallHandler((MethodCall methodCall) async {
-        log.add(methodCall);
-        return <String, dynamic>{'textureId': 3};
+    group('create controller and set network data source', (){
+      test('with cache', () async {
+        channel.setMockMethodCallHandler((MethodCall methodCall) async {
+          log.add(methodCall);
+          return <String, dynamic>{'textureId': 3};
+        });
+        final int textureId = await player.create();
+        await player.setDataSource(
+          textureId,
+          DataSource(
+              sourceType: DataSourceType.network,
+              uri: 'someUri',
+              formatHint: VideoFormat.dash,
+              useCache: true
+          ),
+        );
+        expect(
+          log,
+          <Matcher>[
+            isMethodCall('create', arguments: null),
+            isMethodCall('setDataSource', arguments: <String, Object>{
+              'textureId': 3,
+              'dataSource': {
+                'key': 'someUri:dash',
+                'uri': 'someUri',
+                'formatHint': 'dash',
+                'useCache': true,
+              },
+            }),
+          ],
+        );
+        expect(textureId, 3);
       });
-      final int textureId = await player.create();
-      await player.setDataSource(
-        textureId,
-        DataSource(
-          sourceType: DataSourceType.network,
-          uri: 'someUri',
-          formatHint: VideoFormat.dash,
-        ),
-      );
-      expect(
-        log,
-        <Matcher>[
-          isMethodCall('create', arguments: null),
-          isMethodCall('setDataSource', arguments: <String, Object>{
-            'textureId': 3,
-            'dataSource': {
-              'key': 'someUri:dash',
-              'uri': 'someUri',
-              'formatHint': 'dash',
-            },
-          }),
-        ],
-      );
-      expect(textureId, 3);
+
+      test('without cache', () async {
+        channel.setMockMethodCallHandler((MethodCall methodCall) async {
+          log.add(methodCall);
+          return <String, dynamic>{'textureId': 3};
+        });
+        final int textureId = await player.create();
+        await player.setDataSource(
+          textureId,
+          DataSource(
+              sourceType: DataSourceType.network,
+              uri: 'someUri',
+              formatHint: VideoFormat.dash,
+              useCache: false
+          ),
+        );
+        expect(
+          log,
+          <Matcher>[
+            isMethodCall('create', arguments: null),
+            isMethodCall('setDataSource', arguments: <String, Object>{
+              'textureId': 3,
+              'dataSource': {
+                'key': 'someUri:dash',
+                'uri': 'someUri',
+                'formatHint': 'dash',
+                'useCache': false,
+              },
+            }),
+          ],
+        );
+        expect(textureId, 3);
+      });
+
+      test('without cache by default', () async {
+        channel.setMockMethodCallHandler((MethodCall methodCall) async {
+          log.add(methodCall);
+          return <String, dynamic>{'textureId': 3};
+        });
+        final int textureId = await player.create();
+        await player.setDataSource(
+          textureId,
+          DataSource(
+              sourceType: DataSourceType.network,
+              uri: 'someUri',
+              formatHint: VideoFormat.dash,
+          ),
+        );
+        expect(
+          log,
+          <Matcher>[
+            isMethodCall('create', arguments: null),
+            isMethodCall('setDataSource', arguments: <String, Object>{
+              'textureId': 3,
+              'dataSource': {
+                'key': 'someUri:dash',
+                'uri': 'someUri',
+                'formatHint': 'dash',
+                'useCache': false,
+              },
+            }),
+          ],
+        );
+        expect(textureId, 3);
+      });
     });
 
     test('create controller and set file data source', () async {

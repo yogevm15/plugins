@@ -231,7 +231,7 @@ abstract class _PlayerLifeCycleState extends State<PlayerLifeCycle> {
 class _NetworkPlayerLifeCycleState extends _PlayerLifeCycleState {
   @override
   Future<void> setDataSource() {
-    return controller.setNetworkDataSource(widget.dataSource);
+    return controller.setNetworkDataSource(widget.dataSource, useCache: true);
   }
 }
 

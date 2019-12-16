@@ -1,3 +1,7 @@
+## 0.11.1
+
+* Add caching functionality to videos from network sources.
+
 ## 0.11.0
 
 * **Breaking change**. VideoPlayerController instance now can be reused for different data sources. 

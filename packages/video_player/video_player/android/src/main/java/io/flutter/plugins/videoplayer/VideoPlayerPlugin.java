@@ -25,6 +25,9 @@ public class VideoPlayerPlugin implements MethodCallHandler, FlutterPlugin {
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
 
+  private int maxCacheSize;
+  private int maxCacheFileSize;
+
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
 
@@ -94,7 +97,10 @@ public class VideoPlayerPlugin implements MethodCallHandler, FlutterPlugin {
     }
     switch (call.method) {
       case "init":
+        maxCacheSize = call.argument("maxCacheSize");
+        maxCacheFileSize = call.argument("maxCacheFileSize");
         disposeAllPlayers();
+        result.success(null);
         break;
       case "create":
         {
@@ -105,7 +111,13 @@ public class VideoPlayerPlugin implements MethodCallHandler, FlutterPlugin {
                   flutterState.binaryMessenger, "flutter.io/videoPlayer/videoEvents" + handle.id());
 
           VideoPlayer player =
-              new VideoPlayer(flutterState.applicationContext, eventChannel, handle, result);
+              new VideoPlayer(
+                  flutterState.applicationContext,
+                  eventChannel,
+                  handle,
+                  maxCacheSize,
+                  maxCacheFileSize,
+                  result);
 
           videoPlayers.put(handle.id(), player);
           break;
@@ -131,26 +143,32 @@ public class VideoPlayerPlugin implements MethodCallHandler, FlutterPlugin {
     switch (call.method) {
       case "setDataSource":
         {
-          Map<String, String> dataSource = call.argument("dataSource");
-          String key = dataSource.get("key");
+          Map<String, Object> dataSource = call.argument("dataSource");
+          String key = (String) dataSource.get("key");
           if (dataSource.get("asset") != null) {
             String assetLookupKey;
             if (dataSource.get("package") != null) {
               assetLookupKey =
                   flutterState.keyForAssetAndPackageName.get(
-                      dataSource.get("asset"), dataSource.get("package"));
+                      (String) dataSource.get("asset"), (String) dataSource.get("package"));
             } else {
-              assetLookupKey = flutterState.keyForAsset.get(dataSource.get("asset"));
+              assetLookupKey = flutterState.keyForAsset.get((String) dataSource.get("asset"));
             }
 
             player.setDataSource(
-                flutterState.applicationContext, key, "asset:///" + assetLookupKey, null, result);
+                flutterState.applicationContext,
+                key,
+                "asset:///" + assetLookupKey,
+                null,
+                false,
+                result);
           } else {
             player.setDataSource(
                 flutterState.applicationContext,
                 key,
-                dataSource.get("uri"),
-                dataSource.get("formatHint"),
+                (String) dataSource.get("uri"),
+                (String) dataSource.get("formatHint"),
+                (Boolean) dataSource.get("useCache"),
                 result);
           }
           break;

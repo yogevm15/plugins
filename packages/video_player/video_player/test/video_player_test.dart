@@ -43,14 +43,21 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
   Future<void> setLooping(bool looping) async {}
 
   @override
-  Future<void> setAssetDataSource(String dataSource, {String package}) async {}
+  Future<void> setAssetDataSource(
+    String dataSource, {
+    String package,
+    bool useCache = false,
+  }) async {}
 
   @override
-  Future<void> setFileDataSource(File file) async {}
+  Future<void> setFileDataSource(File file, {bool useCache = false}) async {}
 
   @override
-  Future<void> setNetworkDataSource(String dataSource,
-      {VideoFormat formatHint}) async {}
+  Future<void> setNetworkDataSource(
+    String dataSource, {
+    VideoFormat formatHint,
+    bool useCache = false,
+  }) async {}
 }
 
 void main() {
@@ -107,28 +114,64 @@ void main() {
         });
       });
 
-      test('network', () async {
-        final VideoPlayerController controller = VideoPlayerController();
-        await controller.setNetworkDataSource('https://127.0.0.1');
+      group('network', () {
+        test('with cache', () async {
+          final VideoPlayerController controller = VideoPlayerController();
+          await controller.setNetworkDataSource(
+            'https://127.0.0.1',
+            useCache: true,
+          );
 
-        expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
-          'key': 'https://127.0.0.1',
-          'uri': 'https://127.0.0.1',
-          'formatHint': null,
+          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+            'key': 'https://127.0.0.1',
+            'uri': 'https://127.0.0.1',
+            'formatHint': null,
+            'useCache': true,
+          });
         });
-      });
 
-      test('network with hint', () async {
-        final VideoPlayerController controller = VideoPlayerController();
-        await controller.setNetworkDataSource(
-          'https://127.0.0.1',
-          formatHint: VideoFormat.dash,
-        );
+        test('without cache', () async {
+          final VideoPlayerController controller = VideoPlayerController();
+          await controller.setNetworkDataSource(
+            'https://127.0.0.1',
+            useCache: false,
+          );
 
-        expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
-          'key': 'https://127.0.0.1:dash',
-          'uri': 'https://127.0.0.1',
-          'formatHint': 'dash',
+          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+            'key': 'https://127.0.0.1',
+            'uri': 'https://127.0.0.1',
+            'formatHint': null,
+            'useCache': false,
+          });
+        });
+
+        test('without cache by default', () async {
+          final VideoPlayerController controller = VideoPlayerController();
+          await controller.setNetworkDataSource(
+            'https://127.0.0.1',
+          );
+
+          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+            'key': 'https://127.0.0.1',
+            'uri': 'https://127.0.0.1',
+            'formatHint': null,
+            'useCache': false,
+          });
+        });
+
+        test('with hint', () async {
+          final VideoPlayerController controller = VideoPlayerController();
+          await controller.setNetworkDataSource(
+            'https://127.0.0.1',
+            formatHint: VideoFormat.dash,
+          );
+
+          expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
+            'key': 'https://127.0.0.1:dash',
+            'uri': 'https://127.0.0.1',
+            'formatHint': 'dash',
+            'useCache': false,
+          });
         });
       });
 
@@ -153,12 +196,16 @@ void main() {
         'package': null,
       });
 
-      await controller.setNetworkDataSource('https://127.0.0.1');
+      await controller.setNetworkDataSource(
+        'https://127.0.0.1',
+        useCache: true,
+      );
 
       expect(fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
         'key': 'https://127.0.0.1',
         'uri': 'https://127.0.0.1',
         'formatHint': null,
+        'useCache': true,
       });
     });
 
@@ -203,6 +250,7 @@ void main() {
         'key': 'https://127.0.0.1',
         'uri': 'https://127.0.0.1',
         'formatHint': null,
+        'useCache': false,
       });
     });
 
