@@ -144,41 +144,6 @@ void main() {
           );
 
           expect(
-            fakeVideoPlayerPlatform.dataSourceDescription,
-            <String, dynamic>{
-              'key': 'https://127.0.0.1',
-              'uri': 'https://127.0.0.1',
-              'formatHint': null,
-              'useCache': false,
-            },
-          );
-        });
-
-        test('without cache by default', () async {
-          final VideoPlayerController controller = VideoPlayerController();
-          await controller.setNetworkDataSource(
-            'https://127.0.0.1',
-          );
-
-          expect(
-            fakeVideoPlayerPlatform.dataSourceDescription,
-            <String, dynamic>{
-              'key': 'https://127.0.0.1',
-              'uri': 'https://127.0.0.1',
-              'formatHint': null,
-              'useCache': true,
-            },
-          );
-        });
-
-        test('without cache', () async {
-          final VideoPlayerController controller = VideoPlayerController();
-          await controller.setNetworkDataSource(
-            'https://127.0.0.1',
-            useCache: false,
-          );
-
-          expect(
               fakeVideoPlayerPlatform.dataSourceDescription, <String, dynamic>{
             'key': 'https://127.0.0.1',
             'uri': 'https://127.0.0.1',
@@ -329,10 +294,8 @@ void main() {
     });
 
     test('setMuted', () async {
-      final VideoPlayerController controller = VideoPlayerController.network(
-        'https://127.0.0.1',
-      );
-      await controller.initialize();
+      final VideoPlayerController controller = VideoPlayerController();
+      await controller.setNetworkDataSource('https://127.0.0.1');
       expect(controller.value.isMuted, isFalse);
       await controller.setMuted(true);
 
@@ -400,10 +363,8 @@ void main() {
       });
 
       test('disable mute', () async {
-        final VideoPlayerController controller = VideoPlayerController.network(
-          'https://127.0.0.1',
-        );
-        await controller.initialize();
+        final VideoPlayerController controller = VideoPlayerController();
+        await controller.setNetworkDataSource('https://127.0.0.1');
         await controller.setMuted(true);
         expect(controller.value.isMuted, isTrue);
 
