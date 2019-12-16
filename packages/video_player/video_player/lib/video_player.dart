@@ -322,6 +322,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       size: null,
       isLooping: value.isLooping,
       volume: value.volume,
+      isMuted: value.isMuted,
     );
 
     if (!_creatingCompleter.isCompleted) await _creatingCompleter.future;
@@ -392,7 +393,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   }
 
   Future<void> _applyMuted() async {
-    if (!value.initialized || _isDisposed) {
+    if (!_created || _isDisposed) {
       return;
     }
     await VideoPlayerPlatform.instance.setMuted(_textureId, value.isMuted);
