@@ -108,10 +108,10 @@ static void* playbackBufferFullContext = &playbackBufferFullContext;
 }
 
 - (void)clear {
+  _displayLink.paused = YES;
   _isInitialized = false;
   _isPlaying = false;
   _disposed = false;
-  _displayLink.paused = YES;
   _videoOutput = nil;
   _failedCount = 0;
   _key = nil;
@@ -349,7 +349,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
     _displayLink.paused = YES;
     return;
   }
-    
+
   if (_isPlaying) {
     [_player play];
   } else {
@@ -499,6 +499,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 
 - (void)dispose {
   [self clear];
+  [_displayLink invalidate];
   _disposed = true;
 }
 
@@ -575,6 +576,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
     FLTVideoPlayer* player = _players[@(textureId)];
     if ([@"setDataSource" isEqualToString:call.method]) {
       [player clear];
+      // This call will clear cached frame because we will return transparent frame
+      [_registry textureFrameAvailable:textureId];
       NSDictionary* dataSource = argsMap[@"dataSource"];
       NSString* assetArg = dataSource[@"asset"];
       NSString* uriArg = dataSource[@"uri"];
