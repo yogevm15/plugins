@@ -511,7 +511,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 @property(readonly, nonatomic) NSMutableDictionary* players;
 @property(readonly, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;
 @property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
-@property(nonatomic, readonly) bool enableCache;
+@property(readonly, nonatomic) long maxCacheSize;
+@property(readonly, nonatomic) long maxCacheFileSize;
 
 @end
 
@@ -562,9 +563,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
     [_players removeAllObjects];
 
     NSDictionary* argsMap = call.arguments;
-    long _maxCacheSize = ((NSNumber*)argsMap[@"maxCacheSize"]).longValue;
-    long _maxCacheFileSize = ((NSNumber*)argsMap[@"maxCacheFileSize"]).longValue;
-    _enableCache = _maxCacheSize > 0 && _maxCacheFileSize > 0;
+    _maxCacheSize = ((NSNumber*)argsMap[@"maxCacheSize"]).longValue;
+    _maxCacheFileSize = ((NSNumber*)argsMap[@"maxCacheFileSize"]).longValue;
     result(nil);
   } else if ([@"create" isEqualToString:call.method]) {
     FLTFrameUpdater* frameUpdater = [[FLTFrameUpdater alloc] initWithRegistry:_registry];
@@ -582,6 +582,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
       NSString* assetArg = dataSource[@"asset"];
       NSString* uriArg = dataSource[@"uri"];
       NSString* key = dataSource[@"key"];
+      bool useCache = [argsMap[@"useCache"] boolValue];
       if (assetArg) {
         NSString* assetPath;
         NSString* package = dataSource[@"package"];
@@ -592,7 +593,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
         }
         [player setDataSourceAsset:assetPath withKey:key];
       } else if (uriArg) {
-        if (_enableCache) {
+        if (_maxCacheSize > 0 && _maxCacheFileSize > 0 && useCache) {
           [player setDataSourceURL:[NSURL URLWithString:uriArg]
                                 withKey:key
               withResourceLoaderManager:_resourceLoaderManager];
