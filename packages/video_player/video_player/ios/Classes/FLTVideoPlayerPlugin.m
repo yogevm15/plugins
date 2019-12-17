@@ -590,7 +590,6 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
       NSString* assetArg = dataSource[@"asset"];
       NSString* uriArg = dataSource[@"uri"];
       NSString* key = dataSource[@"key"];
-      bool useCache = [argsMap[@"useCache"] boolValue];
       if (assetArg) {
         NSString* assetPath;
         NSString* package = dataSource[@"package"];
@@ -601,6 +600,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
         }
         [player setDataSourceAsset:assetPath withKey:key];
       } else if (uriArg) {
+        bool useCache = [argsMap[@"useCache"] boolValue];
         if (_maxCacheSize > 0 && _maxCacheFileSize > 0 && useCache) {
           [player setDataSourceURL:[NSURL URLWithString:uriArg]
                                 withKey:key
