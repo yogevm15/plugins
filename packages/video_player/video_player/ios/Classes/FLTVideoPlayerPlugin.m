@@ -557,7 +557,10 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
   if ([@"init" isEqualToString:call.method]) {
     // Allow audio playback when the Ring/Silent switch is set to silent
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+    //Пока захардкодил. Сделать нормально, когда вмержат https://github.com/flutter/plugins/pull/1174
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
+                                          withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                                                error:nil];
     _resourceLoaderManager = [VIResourceLoaderManager new];
     [_resourceLoaderManager cancelLoaders];
     for (NSNumber* textureId in _players) {
@@ -609,9 +612,6 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
       }
       result(nil);
     } else if ([@"dispose" isEqualToString:call.method]) {
-      if (_resourceLoaderManager) {
-        [_resourceLoaderManager cancelLoaders];
-      }
       [_registry unregisterTexture:textureId];
       [_players removeObjectForKey:@(textureId)];
       // If the Flutter contains https://github.com/flutter/engine/pull/12695,
