@@ -8,8 +8,12 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart' show required, visibleForTesting;
+import 'package:video_player_platform_interface/src/closed_caption_file.dart';
 
 import 'method_channel_video_player.dart';
+
+export 'package:video_player_platform_interface/src/closed_caption_file.dart';
+export 'package:video_player_platform_interface/src/sub_rip.dart';
 
 /// The interface that implementations of video_player must implement.
 ///
@@ -146,6 +150,9 @@ class DataSource {
   /// The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
   ///
+  /// The [closedCaptionFile] argument is optional field to specify a file
+  /// containing the closed captioning.
+  ///
   /// The [useCache] argument must be non-null, default is false.
   DataSource({
     @required this.sourceType,
@@ -153,9 +160,9 @@ class DataSource {
     this.formatHint,
     this.asset,
     this.package,
+    this.closedCaptionFile,
     this.useCache = false,
-  })  : assert(uri == null || asset == null),
-        assert(useCache != null);
+  }) : assert(uri == null || asset == null), assert(useCache != null);
 
   /// Describes the type of data source this [VideoPlayerController]
   /// is constructed with.
@@ -198,6 +205,13 @@ class DataSource {
   /// The package that the asset was loaded from. Only set for
   /// [DataSourceType.asset] videos.
   final String package;
+
+  /// Optional field to specify a file containing the closed
+  /// captioning.
+  ///
+  /// This future will be awaited and the file will be loaded when
+  /// [initialize()] is called.
+  final Future<ClosedCaptionFile> closedCaptionFile;
 
   /// Use cache for this data source or not. Used only for network data source.
   final bool useCache;

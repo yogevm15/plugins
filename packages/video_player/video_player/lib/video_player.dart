@@ -13,7 +13,17 @@ import 'package:pedantic/pedantic.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 export 'package:video_player_platform_interface/video_player_platform_interface.dart'
-    show DurationRange, DataSourceType, VideoFormat;
+    show
+        DurationRange,
+        DataSourceType,
+        VideoFormat,
+        ClosedCaptionFile,
+        SubRipCaptionFile;
+
+final VideoPlayerPlatform _videoPlayerPlatform = VideoPlayerPlatform.instance
+// This will clear all open videos on the platform when a full restart is
+// performed.
+  ..init();
 
 /// The duration, current position, buffering state, error state and settings
 /// of a [VideoPlayerController].
@@ -24,6 +34,7 @@ class VideoPlayerValue {
     @required this.duration,
     this.size,
     this.position = const Duration(),
+    this.caption = const Caption(),
     this.buffered = const <DurationRange>[],
     this.isPlaying = false,
     this.isLooping = false,
@@ -48,6 +59,12 @@ class VideoPlayerValue {
 
   /// The current playback position.
   final Duration position;
+
+  /// The [Caption] that should be displayed based on the current [position].
+  ///
+  /// This field will never be null. If there is no caption for the current
+  /// [position], this will be an empty [Caption] object.
+  final Caption caption;
 
   /// The currently buffered ranges.
   final List<DurationRange> buffered;
@@ -85,8 +102,17 @@ class VideoPlayerValue {
   bool get hasError => errorDescription != null;
 
   /// Returns [size.width] / [size.height] when size is non-null, or `1.0.` when
-  /// it is.
-  double get aspectRatio => size != null ? size.width / size.height : 1.0;
+  /// size is null or the aspect ratio would be less than or equal to 0.0.
+  double get aspectRatio {
+    if (size == null) {
+      return 1.0;
+    }
+    final double aspectRatio = size.width / size.height;
+    if (aspectRatio <= 0) {
+      return 1.0;
+    }
+    return aspectRatio;
+  }
 
   /// Returns a new instance that has the same values as this current instance,
   /// except for any overrides passed in as arguments to [copyWidth].
@@ -94,6 +120,7 @@ class VideoPlayerValue {
     Duration duration,
     Size size,
     Duration position,
+    Caption caption,
     List<DurationRange> buffered,
     bool isPlaying,
     bool isLooping,
@@ -106,6 +133,7 @@ class VideoPlayerValue {
       duration: duration ?? this.duration,
       size: size ?? this.size,
       position: position ?? this.position,
+      caption: caption ?? this.caption,
       buffered: buffered ?? this.buffered,
       isPlaying: isPlaying ?? this.isPlaying,
       isLooping: isLooping ?? this.isLooping,
@@ -122,6 +150,7 @@ class VideoPlayerValue {
         'duration: $duration, '
         'size: $size, '
         'position: $position, '
+        'caption: $caption, '
         'buffered: [${buffered.join(', ')}], '
         'isPlaying: $isPlaying, '
         'isLooping: $isLooping, '
@@ -152,6 +181,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
 
   DataSource _dataSource;
 
+  ClosedCaptionFile _closedCaptionFile;
   Timer _timer;
   bool _isDisposed = false;
   static Completer<void> _pluginInitializingCompleter;
@@ -196,7 +226,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// Attempts to open the given [dataSource] and load metadata about the video.
   Future<void> _create() async {
     await _ensureVideoPluginInitialized();
-    _textureId = await VideoPlayerPlatform.instance.create();
+    _textureId = await _videoPlayerPlatform.create();
     _creatingCompleter.complete(null);
 
     unawaited(_applyLooping());
@@ -238,9 +268,12 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       final PlatformException e = obj;
       value = VideoPlayerValue.erroneous(e.message);
       _timer?.cancel();
+      if (!_initializingCompleter.isCompleted) {
+        _initializingCompleter.completeError(obj);
+      }
     }
 
-    _eventSubscription = VideoPlayerPlatform.instance
+    _eventSubscription = _videoPlayerPlatform
         .videoEventsFor(_textureId)
         .listen(eventListener, onError: errorListener);
   }
@@ -263,12 +296,17 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// The name of the asset is given by the [dataSource] argument and must not be
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
-  Future<void> setAssetDataSource(String dataSource, {String package}) {
+  Future<void> setAssetDataSource(
+    String dataSource, {
+    String package,
+    Future<ClosedCaptionFile> closedCaptionFile,
+  }) {
     return _setDataSource(
       DataSource(
         sourceType: DataSourceType.asset,
         asset: dataSource,
         package: package,
+        closedCaptionFile: closedCaptionFile,
       ),
     );
   }
@@ -280,10 +318,11 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// null.
   /// **Android only**: The [formatHint] option allows the caller to override
   /// the video format detection code. The [useCache] argument must be non-null,
-  /// default is false.
+  ///  default is false.
   Future<void> setNetworkDataSource(
     String dataSource, {
     VideoFormat formatHint,
+    Future<ClosedCaptionFile> closedCaptionFile,
     bool useCache = false,
   }) {
     assert(useCache != null);
@@ -292,6 +331,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
         sourceType: DataSourceType.network,
         uri: dataSource,
         formatHint: formatHint,
+        closedCaptionFile: closedCaptionFile,
         useCache: useCache,
       ),
     );
@@ -301,11 +341,15 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   ///
   /// This will load the file from the file-URI given by:
   /// `'file://${file.path}'`.
-  Future<void> setFileDataSource(File file) {
+  Future<void> setFileDataSource(
+    File file, {
+    Future<ClosedCaptionFile> closedCaptionFile,
+  }) {
     return _setDataSource(
       DataSource(
         sourceType: DataSourceType.file,
         uri: 'file://${file.path}',
+        closedCaptionFile: closedCaptionFile,
       ),
     );
   }
@@ -327,6 +371,13 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
 
     if (!_creatingCompleter.isCompleted) await _creatingCompleter.future;
 
+    if (dataSourceDescription.closedCaptionFile != null) {
+      if (_closedCaptionFile == null) {
+        _closedCaptionFile = await dataSourceDescription.closedCaptionFile;
+      }
+      value = value.copyWith(caption: _getCaptionAt(value.position));
+    }
+
     if (_lifeCycleObserver == null) {
       _lifeCycleObserver = _VideoAppLifeCycleObserver(this);
       _lifeCycleObserver.initialize();
@@ -347,7 +398,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
         value = VideoPlayerValue.uninitialized();
         _timer?.cancel();
         await _eventSubscription?.cancel();
-        await VideoPlayerPlatform.instance.dispose(_textureId);
+        await _videoPlayerPlatform.dispose(_textureId);
       }
       _lifeCycleObserver?.dispose();
     }
@@ -389,7 +440,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     if (!_created || _isDisposed) {
       return;
     }
-    await VideoPlayerPlatform.instance.setLooping(_textureId, value.isLooping);
+    await _videoPlayerPlatform.setLooping(_textureId, value.isLooping);
   }
 
   Future<void> _applyMuted() async {
@@ -405,7 +456,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     }
     _timer?.cancel();
     if (value.isPlaying) {
-      await VideoPlayerPlatform.instance.play(_textureId);
+      await _videoPlayerPlatform.play(_textureId);
       _timer = Timer.periodic(
         const Duration(milliseconds: 500),
         (Timer timer) async {
@@ -416,11 +467,11 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           if (_isDisposed) {
             return;
           }
-          value = value.copyWith(position: newPosition);
+          _updatePosition(newPosition);
         },
       );
     } else {
-      await VideoPlayerPlatform.instance.pause(_textureId);
+      await _videoPlayerPlatform.pause(_textureId);
     }
   }
 
@@ -428,7 +479,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     if (!_created || _isDisposed) {
       return;
     }
-    await VideoPlayerPlatform.instance.setVolume(_textureId, value.volume);
+    await _videoPlayerPlatform.setVolume(_textureId, value.volume);
   }
 
   /// The position in the current video.
@@ -436,7 +487,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     if (!value.initialized && _isDisposed) {
       return null;
     }
-    return await VideoPlayerPlatform.instance.getPosition(_textureId);
+    return await _videoPlayerPlatform.getPosition(_textureId);
   }
 
   /// Sets the video's current timestamp to be at [moment]. The next
@@ -453,8 +504,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     } else if (position < const Duration()) {
       position = const Duration();
     }
-    await VideoPlayerPlatform.instance.seekTo(_textureId, position);
-    value = value.copyWith(position: position);
+    await _videoPlayerPlatform.seekTo(_textureId, position);
+    _updatePosition(position);
   }
 
   /// Sets the audio volume of [this] and disable mute if enabled.
@@ -464,6 +515,33 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   Future<void> setVolume(double volume) async {
     value = value.copyWith(volume: volume.clamp(0.0, 1.0), isMuted: false);
     await _applyVolume();
+  }
+
+  /// The closed caption based on the current [position] in the video.
+  ///
+  /// If there are no closed captions at the current [position], this will
+  /// return an empty [Caption].
+  ///
+  /// If no [closedCaptionFile] was specified, this will always return an empty
+  /// [Caption].
+  Caption _getCaptionAt(Duration position) {
+    if (_closedCaptionFile == null) {
+      return Caption();
+    }
+
+    // TODO: This would be more efficient as a binary search.
+    for (final caption in _closedCaptionFile.captions) {
+      if (caption.start <= position && caption.end >= position) {
+        return caption;
+      }
+    }
+
+    return Caption();
+  }
+
+  void _updatePosition(Duration position) {
+    value = value.copyWith(position: position);
+    value = value.copyWith(caption: _getCaptionAt(position));
   }
 }
 
@@ -553,7 +631,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
   Widget build(BuildContext context) {
     return _textureId == null
         ? Container()
-        : VideoPlayerPlatform.instance.buildView(_textureId);
+        : _videoPlayerPlatform.buildView(_textureId);
   }
 }
 
@@ -781,5 +859,71 @@ class _VideoProgressIndicatorState extends State<VideoProgressIndicator> {
     } else {
       return paddedProgressIndicator;
     }
+  }
+}
+
+/// Widget for displaying closed captions on top of a video.
+///
+/// If [text] is null, this widget will not display anything.
+///
+/// If [textStyle] is supplied, it will be used to style the text in the closed
+/// caption.
+///
+/// Note: in order to have closed captions, you need to specify a
+/// [VideoPlayerController.closedCaptionFile].
+///
+/// Usage:
+///
+/// ```dart
+/// Stack(children: <Widget>[
+///   VideoPlayer(_controller),
+///   ClosedCaption(text: _controller.value.caption.text),
+/// ]),
+/// ```
+class ClosedCaption extends StatelessWidget {
+  /// Creates a a new closed caption, designed to be used with
+  /// [VideoPlayerValue.caption].
+  ///
+  /// If [text] is null, nothing will be displayed.
+  const ClosedCaption({Key key, this.text, this.textStyle}) : super(key: key);
+
+  /// The text that will be shown in the closed caption, or null if no caption
+  /// should be shown.
+  final String text;
+
+  /// Specifies how the text in the closed caption should look.
+  ///
+  /// If null, defaults to [DefaultTextStyle.of(context).style] with size 36
+  /// font colored white.
+  final TextStyle textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle effectiveTextStyle = textStyle ??
+        DefaultTextStyle.of(context).style.copyWith(
+              fontSize: 36.0,
+              color: Colors.white,
+            );
+
+    if (text == null) {
+      return SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: 24.0),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color(0xB8000000),
+            borderRadius: BorderRadius.circular(2.0),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 2.0),
+            child: Text(text, style: effectiveTextStyle),
+          ),
+        ),
+      ),
+    );
   }
 }

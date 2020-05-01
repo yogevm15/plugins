@@ -4,6 +4,7 @@
 @TestOn('browser')
 import 'dart:async' show Stream;
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -93,6 +94,27 @@ void main() {
       // Mute video to allow autoplay (See https://goo.gl/xX8pDD)
       await VideoPlayerPlatform.instance.setVolume(textureId, 0);
       expect(VideoPlayerPlatform.instance.play(textureId), completes);
+    });
+
+    test('throws PlatformException when playing bad media', () async {
+      int textureId = await VideoPlayerPlatform.instance.create();
+
+      await VideoPlayerPlatform.instance.setDataSource(
+        textureId,
+        DataSource(
+            sourceType: DataSourceType.network,
+            uri:
+                'https://flutter.github.io/assets-for-api-docs/assets/videos/_non_existent_video.mp4'),
+      );
+
+      Stream<VideoEvent> eventStream =
+          VideoPlayerPlatform.instance.videoEventsFor(textureId);
+
+      // Mute video to allow autoplay (See https://goo.gl/xX8pDD)
+      await VideoPlayerPlatform.instance.setVolume(textureId, 0);
+      await VideoPlayerPlatform.instance.play(textureId);
+
+      expect(eventStream, emitsError(isA<PlatformException>()));
     });
 
     test('can pause', () {

@@ -7,6 +7,10 @@
 #import <GLKit/GLKit.h>
 #import "VIMediaCache.h"
 
+#if !__has_feature(objc_arc)
+#error Code Requires ARC.
+#endif
+
 int64_t FLTCMTimeToMillis(CMTime time) {
   if (time.timescale == 0) return 0;
   return time.value * 1000 / time.timescale;
@@ -14,7 +18,7 @@ int64_t FLTCMTimeToMillis(CMTime time) {
 
 @interface FLTFrameUpdater : NSObject
 @property(nonatomic) int64_t textureId;
-@property(nonatomic, readonly) NSObject<FlutterTextureRegistry>* registry;
+@property(nonatomic, weak, readonly) NSObject<FlutterTextureRegistry>* registry;
 - (void)onDisplayLink:(CADisplayLink*)link;
 @end
 
@@ -438,12 +442,12 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   if (_prevBuffer) {
     CVPixelBufferLockBaseAddress(_prevBuffer, 0);
 
-    int bufferWidth = CVPixelBufferGetWidth(_prevBuffer);
-    int bufferHeight = CVPixelBufferGetHeight(_prevBuffer);
+    long bufferWidth = CVPixelBufferGetWidth(_prevBuffer);
+    long bufferHeight = CVPixelBufferGetHeight(_prevBuffer);
     unsigned char* pixel = (unsigned char*)CVPixelBufferGetBaseAddress(_prevBuffer);
 
-    for (int row = 0; row < bufferHeight; row++) {
-      for (int column = 0; column < bufferWidth; column++) {
+    for (long row = 0; row < bufferHeight; row++) {
+      for (long column = 0; column < bufferWidth; column++) {
         pixel[0] = 0;
         pixel[1] = 0;
         pixel[2] = 0;
@@ -458,7 +462,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 }
 
 - (CVPixelBufferRef)copyPixelBuffer {
-if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player currentItem] || ![[_player currentItem] isPlaybackLikelyToKeepUp]) {
+  if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player currentItem] ||
+      ![[_player currentItem] isPlaybackLikelyToKeepUp]) {
     return [self prevTransparentBuffer];
   }
 
@@ -502,23 +507,44 @@ if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player curren
   return nil;
 }
 
-- (void)dispose {
+/// This method allows you to dispose without touching the event channel.  This
+/// is useful for the case where the Engine is in the process of deconstruction
+/// so the channel is going to die or is already dead.
+- (void)disposeSansEventChannel {
   [self clear];
   [_displayLink invalidate];
+  [[_player currentItem] removeObserver:self forKeyPath:@"status" context:statusContext];
+  [[_player currentItem] removeObserver:self
+                             forKeyPath:@"loadedTimeRanges"
+                                context:timeRangeContext];
+  [[_player currentItem] removeObserver:self
+                             forKeyPath:@"playbackLikelyToKeepUp"
+                                context:playbackLikelyToKeepUpContext];
+  [[_player currentItem] removeObserver:self
+                             forKeyPath:@"playbackBufferEmpty"
+                                context:playbackBufferEmptyContext];
+  [[_player currentItem] removeObserver:self
+                             forKeyPath:@"playbackBufferFull"
+                                context:playbackBufferFullContext];
+  [_player replaceCurrentItemWithPlayerItem:nil];
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)dispose {
+  [self disposeSansEventChannel];
+  [_eventChannel setStreamHandler:nil];
   _disposed = true;
 }
 
 @end
 
 @interface FLTVideoPlayerPlugin ()
-@property(readonly, nonatomic) NSObject<FlutterTextureRegistry>* registry;
-@property(readonly, nonatomic) NSObject<FlutterBinaryMessenger>* messenger;
-@property(readonly, nonatomic) NSMutableDictionary* players;
-@property(readonly, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;
-@property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
+@property(readonly, weak, nonatomic) NSObject<FlutterTextureRegistry>* registry;
+@property(readonly, weak, nonatomic) NSObject<FlutterBinaryMessenger>* messenger;
+@property(readonly, strong, nonatomic) NSMutableDictionary* players;
+@property(readonly, strong, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;@property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
 @property(readonly, nonatomic) long maxCacheSize;
 @property(readonly, nonatomic) long maxCacheFileSize;
-
 @end
 
 @implementation FLTVideoPlayerPlugin
@@ -528,6 +554,7 @@ if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player curren
                                   binaryMessenger:[registrar messenger]];
   FLTVideoPlayerPlugin* instance = [[FLTVideoPlayerPlugin alloc] initWithRegistrar:registrar];
   [registrar addMethodCallDelegate:instance channel:channel];
+  [registrar publish:instance];
 }
 
 - (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
@@ -538,6 +565,14 @@ if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player curren
   _registrar = registrar;
   _players = [NSMutableDictionary dictionaryWithCapacity:1];
   return self;
+}
+
+- (void)detachFromEngineForRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
+  for (NSNumber* textureId in _players.allKeys) {
+    FLTVideoPlayer* player = _players[textureId];
+    [player disposeSansEventChannel];
+  }
+  [_players removeAllObjects];
 }
 
 - (void)onPlayerSetup:(FLTVideoPlayer*)player
