@@ -569,9 +569,9 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 }
 
 - (void)detachFromEngineForRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
-  for (NSNumber* textureId in _players.allKeys) {
-    FLTVideoPlayer* player = _players[textureId];
-    [player disposeSansEventChannel];
+  for (NSNumber* textureId in _players) {
+    [_registry unregisterTexture:[textureId unsignedIntegerValue]];
+    [_players[textureId] dispose];
   }
   [_players removeAllObjects];
 }
@@ -595,7 +595,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   if ([@"init" isEqualToString:call.method]) {
     // Allow audio playback when the Ring/Silent switch is set to silent
     //Пока захардкодил. Сделать нормально, когда вмержат
-    //https://github.com/flutter/plugins/pull/1174
+    // https://github.com/flutter/plugins/pull/1174
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
                                      withOptions:AVAudioSessionCategoryOptionMixWithOthers
                                            error:nil];
