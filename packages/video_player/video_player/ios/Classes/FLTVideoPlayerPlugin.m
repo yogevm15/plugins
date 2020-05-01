@@ -47,7 +47,6 @@ int64_t FLTCMTimeToMillis(CMTime time) {
 @property(nonatomic) bool isLooping;
 @property(nonatomic, readonly) bool isInitialized;
 @property(nonatomic, readonly) NSString* key;
-@property(nonatomic, readonly) CVPixelBufferRef prevBuffer;
 @property(nonatomic, readonly) int failedCount;
 - (void)play;
 - (void)pause;
@@ -434,44 +433,11 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   [_player setMuted:isMuted];
 }
 
-// This workaround if you will change dataSource. Flutter engine caches CVPixelBufferRef and if you
-// return NULL from method copyPixelBuffer Flutter will use cached CVPixelBufferRef. If you will
-// change your datasource you can see frame from previeous video. Thats why we should return
-// trasparent frame for this situation
-- (CVPixelBufferRef)prevTransparentBuffer {
-  if (_prevBuffer) {
-    CVPixelBufferLockBaseAddress(_prevBuffer, 0);
-
-    long bufferWidth = CVPixelBufferGetWidth(_prevBuffer);
-    long bufferHeight = CVPixelBufferGetHeight(_prevBuffer);
-    unsigned char* pixel = (unsigned char*)CVPixelBufferGetBaseAddress(_prevBuffer);
-
-    for (long row = 0; row < bufferHeight; row++) {
-      for (long column = 0; column < bufferWidth; column++) {
-        pixel[0] = 0;
-        pixel[1] = 0;
-        pixel[2] = 0;
-        pixel[3] = 0;
-        pixel += 4;
-      }
-    }
-    CVPixelBufferUnlockBaseAddress(_prevBuffer, 0);
-    return _prevBuffer;
-  }
-  return _prevBuffer;
-}
-
 - (CVPixelBufferRef)copyPixelBuffer {
-  if (!_videoOutput || !_isInitialized || !_isPlaying || !_key || ![_player currentItem] ||
-      ![[_player currentItem] isPlaybackLikelyToKeepUp]) {
-    return [self prevTransparentBuffer];
-  }
-
   CMTime outputItemTime = [_videoOutput itemTimeForHostTime:CACurrentMediaTime()];
   if ([_videoOutput hasNewPixelBufferForItemTime:outputItemTime]) {
     _failedCount = 0;
-    _prevBuffer = [_videoOutput copyPixelBufferForItemTime:outputItemTime itemTimeForDisplay:NULL];
-    return _prevBuffer;
+    return [_videoOutput copyPixelBufferForItemTime:outputItemTime itemTimeForDisplay:NULL];
   } else {
     // AVPlayerItemVideoOutput.hasNewPixelBufferForItemTime doesn't work correctly
     _failedCount++;
