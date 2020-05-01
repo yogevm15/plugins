@@ -542,7 +542,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 @property(readonly, weak, nonatomic) NSObject<FlutterTextureRegistry>* registry;
 @property(readonly, weak, nonatomic) NSObject<FlutterBinaryMessenger>* messenger;
 @property(readonly, strong, nonatomic) NSMutableDictionary* players;
-@property(readonly, strong, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;@property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
+@property(readonly, strong, nonatomic) NSObject<FlutterPluginRegistrar>* registrar;
+@property(readonly, nonatomic) VIResourceLoaderManager* resourceLoaderManager;
 @property(readonly, nonatomic) long maxCacheSize;
 @property(readonly, nonatomic) long maxCacheFileSize;
 @end
@@ -593,10 +594,11 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
   if ([@"init" isEqualToString:call.method]) {
     // Allow audio playback when the Ring/Silent switch is set to silent
-    //Пока захардкодил. Сделать нормально, когда вмержат https://github.com/flutter/plugins/pull/1174
+    //Пока захардкодил. Сделать нормально, когда вмержат
+    //https://github.com/flutter/plugins/pull/1174
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
-                                          withOptions:AVAudioSessionCategoryOptionMixWithOthers
-                                                error:nil];
+                                     withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                                           error:nil];
     _resourceLoaderManager = [VIResourceLoaderManager new];
     [_resourceLoaderManager cancelLoaders];
     for (NSNumber* textureId in _players) {

@@ -50,7 +50,7 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
   Future<void> setAssetDataSource(
     String dataSource, {
     String package,
-    Future<ClosedCaptionFile> closedCaptionFile, 
+    Future<ClosedCaptionFile> closedCaptionFile,
     bool useCache = false,
   }) async {}
 
@@ -58,7 +58,7 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
   Future<void> setFileDataSource(
     File file, {
     Future<ClosedCaptionFile> closedCaptionFile,
-    bool useCache = false,   
+    bool useCache = false,
   }) async {}
 
   @override
@@ -66,7 +66,7 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
     String dataSource, {
     VideoFormat formatHint,
     Future<ClosedCaptionFile> closedCaptionFile,
-    bool useCache = false,    
+    bool useCache = false,
   }) async {}
 }
 

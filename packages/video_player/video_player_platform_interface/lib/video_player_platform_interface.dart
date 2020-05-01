@@ -162,7 +162,8 @@ class DataSource {
     this.package,
     this.closedCaptionFile,
     this.useCache = false,
-  }) : assert(uri == null || asset == null), assert(useCache != null);
+  })  : assert(uri == null || asset == null),
+        assert(useCache != null);
 
   /// Describes the type of data source this [VideoPlayerController]
   /// is constructed with.
