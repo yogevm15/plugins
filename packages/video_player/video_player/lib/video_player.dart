@@ -294,7 +294,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     );
   }
 
-  Future<void> setDataSource(DataSource dataSourceDescription) async {
+  Future<void> _setDataSource(DataSource dataSourceDescription) async {
     if (_isDisposed) return;
 
     this._dataSource = dataSourceDescription;
