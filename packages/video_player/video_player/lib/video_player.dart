@@ -277,28 +277,6 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     );
   }
 
-  /// Set data source for playing a video from obtained from
-  /// the network.
-  ///
-  /// The URI for the video is given by the [dataSource] argument and must not be
-  /// null.
-  /// **Android only**: The [formatHint] option allows the caller to override
-  /// the video format detection code.
-  Future<void> setNetworkDataSource(
-    String dataSource, {
-    VideoFormat formatHint,
-    Future<ClosedCaptionFile> closedCaptionFile,
-  }) {
-    return _setDataSource(
-      DataSource(
-        sourceType: DataSourceType.network,
-        uri: dataSource,
-        formatHint: formatHint,
-        closedCaptionFile: closedCaptionFile,
-      ),
-    );
-  }
-
   /// Set data source for playing a video from a file.
   ///
   /// This will load the file from the file-URI given by:
@@ -316,7 +294,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     );
   }
 
-  Future<void> _setDataSource(DataSource dataSourceDescription) async {
+  Future<void> setDataSource(DataSource dataSourceDescription) async {
     if (_isDisposed) return;
 
     this._dataSource = dataSourceDescription;
@@ -492,6 +470,28 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     _updatePosition(position);
   }
 
+  /// Set data source for playing a video from obtained from
+  /// the network.
+  ///
+  /// The URI for the video is given by the [dataSource] argument and must not be
+  /// null.
+  /// **Android only**: The [formatHint] option allows the caller to override
+  /// the video format detection code.
+  Future<void> setNetworkDataSource(
+    String dataSource, {
+    VideoFormat formatHint,
+    Future<ClosedCaptionFile> closedCaptionFile,
+  }) {
+    return _setDataSource(
+      DataSource(
+        sourceType: DataSourceType.network,
+        uri: dataSource,
+        formatHint: formatHint,
+        closedCaptionFile: closedCaptionFile,
+      ),
+    );
+  }  
+  
   /// Sets the audio volume of [this].
   ///
   /// [volume] indicates a value between 0.0 (silent) and 1.0 (full volume) on a
